@@ -1,38 +1,37 @@
 services:
   db:
     image: pgvector/pgvector:pg16
-    container_name: novi-llm-rag-db
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: multirag
+      POSTGRES_USER: raguser
+      POSTGRES_PASSWORD: ragpass
     restart: unless-stopped
     volumes:
-      - novi_llmrag_pgdata:/var/lib/postgresql/data
+      - multirag_pgdata:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U raguser -d multirag"]
       interval: 5s
       timeout: 3s
       retries: 20
     networks:
-      - proxy-net
-      - internal
+      default:
+        aliases:
+          - postgres
 
   backend:
-    container_name: novi-llm-rag-backend
     build:
       context: ./backend
       dockerfile: Dockerfile
     env_file:
       - .env
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://raguser:ragpass@db:5432/multirag}
     depends_on:
       db:
         condition: service_healthy
     ports:
-      - "${BACKEND_HOST_PORT:-5003}:5000"
+      - "5000:5000"
     volumes:
       - ./uploads:/app/uploads
     restart: unless-stopped
@@ -44,29 +43,18 @@ services:
       timeout: 5s
       retries: 12
       start_period: 20s
-    networks:
-      - proxy-net
-      - internal
+
 
   frontend:
-    container_name: novi-llm-rag-frontend
     build:
       context: ./frontend
       dockerfile: Dockerfile
     depends_on:
       - backend
     ports:
-      - "${FRONTEND_HOST_PORT:-5182}:80"
+      - "80:80"        # javno izlažemo samo Nginx (frontend)
+    # nema potrebe za env ovdje, jer koristimo /api relativnu putanju
     restart: unless-stopped
-    networks:
-      - proxy-net
-      - internal
-
-networks:
-  proxy-net:
-    external: true
-  internal:
-    name: novi-llm-rag-internal
 
 volumes:
-  novi_llmrag_pgdata:
+  multirag_pgdata:

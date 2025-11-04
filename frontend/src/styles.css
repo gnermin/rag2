@@ -1,17 +1,116 @@
+/* Tailwind core */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* Globalne tranzicije (lijepi switch svijetlo ↔ tamno) */
+@layer base {
+  * {
+    @apply transition-colors duration-200;
+  }
+
+  /* Pristojna selekcija teksta */
+  ::selection {
+    @apply bg-blue-500/20;
+  }
+
+  html, body, #root {
+    @apply min-h-screen;
+  }
+
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+
+    /* Blaga pozadina koja radi i bez layout radijalnog gradijenta */
+    @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+  }
+
+  code {
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+  }
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+/* Komponente (reusable) */
+@layer components {
+  /* Auto “uljepšivač” za emoji bedževe: samo dodaj data-emoji na <span> */
+  [data-emoji] {
+    @apply relative inline-grid place-items-center rounded-2xl
+           h-10 w-10 text-xl leading-none select-none
+           bg-white/70 dark:bg-slate-900/70 backdrop-blur
+           ring-1 ring-slate-200/60 dark:ring-slate-800/60
+           shadow-lg transition-all duration-200;
+  }
+  [data-emoji]::before {
+    content: "";
+    @apply absolute inset-0 -z-10 rounded-full blur-xl;
+    /* suptilan conic glow */
+    background: conic-gradient(
+      from 180deg at 50% 50%,
+      rgba(167,139,250,.20),
+      rgba(96,165,250,.20),
+      rgba(52,211,153,.20),
+      rgba(167,139,250,.20)
+    );
+  }
+  [data-emoji]:hover {
+    transform: translateY(-1px);
+  }
+
+  /* „Card” helper klasa za brzu upotrebu po stranici */
+  .card {
+    @apply rounded-2xl border border-slate-200 dark:border-slate-800
+           bg-white/80 dark:bg-slate-900/70 backdrop-blur shadow-sm;
+  }
+
+  /* Primarno dugme bez dodatnih biblioteka */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2
+           rounded-xl px-4 py-2 font-semibold
+           bg-slate-900 text-white dark:bg-slate-800
+           hover:bg-slate-800 dark:hover:bg-slate-700
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40
+           active:scale-[0.99] transition;
+  }
+
+  /* Sekundarno dugme (ghost) */
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2
+           rounded-xl px-4 py-2 font-medium
+           text-slate-700 hover:text-slate-900 hover:bg-slate-100/70
+           dark:text-slate-200 dark:hover:text-white dark:hover:bg-slate-800/60
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40
+           transition;
+  }
+}
+
+/* Util/help animacije (opciono) */
+@keyframes float {
+  0%, 100% { transform: translateY(0) }
+  50%      { transform: translateY(-2px) }
+}
+.emoji-float { animation: float 3s ease-in-out infinite; }
+
+/* (opciono) ljepše scroll trake na desktopu */
+@layer utilities {
+  .nice-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100,116,139,.5) transparent; /* Firefox */
+  }
+  .nice-scrollbar::-webkit-scrollbar {
+    width: 10px; height: 10px;
+  }
+  .nice-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(100,116,139,.5);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  .nice-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
 }

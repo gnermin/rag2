@@ -24,7 +24,7 @@ class RewriterAgent:
             return ctx
         
         prompt = (
-            f"Parafraziraj upit u {k} varijante koje mogu poboljšati vektorsku pretragu. "
+            f"Parafraziraj upit u {k} varijanti koje mogu poboljšati vektorsku pretragu. "
             "Sačuvaj semantiku. Vrati svaku varijantu u novom redu bez dodatnog teksta.\n\n"
             f"Upit: {ctx['query']}"
         )

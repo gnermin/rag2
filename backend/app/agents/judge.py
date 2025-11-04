@@ -32,7 +32,7 @@ class JudgeAgent:
         cite_texts = "\n".join((c.get("content", "") or "")[:400] for c in chunks[:3])
         
         prompt = (
-            "Kao kritičar, procijeni da li odgovor dosledno koristi kontekst i ne halucinira. "
+            "Kao kritičar na bosanskom jeziku, procijeni da li odgovor dosljedno koristi kontekst i ne halucinira. "
             "Vrati strogo JSON: {\"ok\": bool, \"needs_more\": bool, \"notes\": \"...\"}.\n\n"
             f"ODGOVOR:\n{answer}\n\nKONTEKST (skraćeno):\n{cite_texts}"
         )

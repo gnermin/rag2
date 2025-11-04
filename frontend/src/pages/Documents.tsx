@@ -101,11 +101,20 @@ export default function Documents() {
 
   return (
     <AppLayout>
-      <div className="px-4">
+      {/* Glavni container centriran globalno */}
+      <div className="mx-auto max-w-6xl w-full px-4">
         <h1 className="text-3xl font-bold text-slate-900 mb-6">Dokumenti</h1>
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
+        {/* Dinamični grid: 2 kolone kad postoji desni panel, inače 1 kolona i centriraj lijevu */}
+        <div
+          className={`grid gap-6 ${
+            selectedDoc
+              ? 'lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]'
+              : 'lg:grid-cols-1'
+          }`}
+        >
+          {/* Lijevi stupac */}
+          <div className={`space-y-6 ${!selectedDoc ? 'max-w-3xl mx-auto w-full' : ''}`}>
             <FileDropzone onFileSelect={handleFileSelect} uploading={uploading} />
 
             {error && (
@@ -133,7 +142,7 @@ export default function Documents() {
                   </button>
                 )}
               </div>
-              
+
               {docs.length === 0 ? (
                 <p className="text-slate-500 text-center py-8">Još nema dokumenata. Učitajte jedan da počnete!</p>
               ) : (
@@ -180,14 +189,15 @@ export default function Documents() {
             </div>
           </div>
 
-          <div>
-            {selectedDoc && (
+          {/* Desni stupac – samo kad postoji selektovan dokument */}
+          {selectedDoc && (
+            <div>
               <AgentTrace
                 logs={selectedDoc.agent_logs || []}
                 metadata={selectedDoc.metadata}
               />
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </AppLayout>

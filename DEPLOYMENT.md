@@ -1,8 +1,8 @@
 # Deployment Guide for Multi-RAG
 
-## Autoscale Deployment on Replit
+## Autoscale Deployment
 
-Your Multi-RAG application is now configured for **Autoscale deployment** on Replit. The frontend and backend are served from a single FastAPI server for seamless deployment.
+Your Multi-RAG application is now configured for **Autoscale deployment**. The frontend and backend are served from a single FastAPI server for seamless deployment.
 
 ### ✅ What's Been Configured
 

@@ -1,68 +1,99 @@
-import re
+import uuid
+from typing import List
 from sqlalchemy import create_engine, text
-from typing import Dict, Any, List
+from sqlalchemy.engine import Engine
+from sqlalchemy.exc import SQLAlchemyError
+
 from app.agents.base import BaseAgent
 from app.agents.types import ProcessingContext
 from app.core.config import settings
 
 
-class SQLIngestAgent(BaseAgent):
-    def __init__(self, connection_string: str = None, query: str = None, batch_size: int = None):
-        super().__init__("SQLIngestAgent")
-        self.connection_string = connection_string or settings.EXTERNAL_DB_URL
-        self.query = query or settings.SQL_INGEST_QUERY
-        self.batch_size = batch_size or settings.SQL_INGEST_BATCH_SIZE
-    
-    async def process(self, context: ProcessingContext) -> ProcessingContext:
-        if not self.connection_string:
-            raise Exception("Konekcija na bazu podataka nije pružena")
-        
-        if not self.query:
-            raise Exception("SQL upit nije pružen")
-        
-        if not self._is_safe_query(self.query):
-            raise Exception("Samo SELECT upiti su dozvoljeni iz sigurnosnih razloga")
+def _to_uuid(val) -> uuid.UUID:
+    try:
+        return uuid.UUID(str(val)) if val else uuid.uuid4()
+    except Exception:
+        return uuid.uuid4()
 
-        engine = create_engine(self.connection_string)
-        
+
+class PgVectorIngestAgent(BaseAgent):
+    """
+    Upis chunkova + embeddinga u Postgres/pgvector.
+    ENV / settings:
+      TARGET_PG_URL (ili EXTERNAL_DB_URL)
+      DOCUMENT_CHUNKS_TABLE (default: document_chunks)
+      CHUNK_EMBEDDINGS_TABLE (default: chunk_embeddings)
+      SQL_INGEST_BATCH_SIZE (default: 500)
+    Očekuje:
+      context.chunks: List[str]
+      context.metadata['embeddings']: List[List[float]] (1536D)
+      context.metadata['doc_id'] (opcionalno)
+    """
+
+    def __init__(self,
+                 target_pg_url: str | None = None,
+                 document_chunks_table: str | None = None,
+                 chunk_embeddings_table: str | None = None,
+                 batch_size: int | None = None):
+        super().__init__("PgVectorIngestAgent")
+        self.target_pg_url = target_pg_url or getattr(settings, "TARGET_PG_URL", None) or getattr(settings, "EXTERNAL_DB_URL", None)
+        if not self.target_pg_url:
+            raise ValueError("PgVectorIngestAgent: TARGET_PG_URL/EXTERNAL_DB_URL nije podešen.")
+        self.document_chunks_table = document_chunks_table or getattr(settings, "DOCUMENT_CHUNKS_TABLE", "document_chunks")
+        self.chunk_embeddings_table = chunk_embeddings_table or getattr(settings, "CHUNK_EMBEDDINGS_TABLE", "chunk_embeddings")
+        self.batch_size = batch_size or getattr(settings, "SQL_INGEST_BATCH_SIZE", 500)
+
+    async def process(self, context: ProcessingContext) -> ProcessingContext:
+        chunks: List[str] = context.chunks or []
+        vectors: List[List[float]] = context.metadata.get("embeddings") or []
+
+        if not chunks:
+            raise ValueError("PgVectorIngestAgent: context.chunks je prazan.")
+        if not vectors:
+            raise ValueError("PgVectorIngestAgent: nema embeddings u context.metadata['embeddings'].")
+        if len(vectors) != len(chunks):
+            raise ValueError(f"PgVectorIngestAgent: length mismatch vectors({len(vectors)}) vs chunks({len(chunks)})")
+
+        engine = create_engine(self.target_pg_url)
+        doc_id = _to_uuid(context.metadata.get("doc_id"))
+
+        insert_chunk_sql = text(f"""
+            INSERT INTO {self.document_chunks_table} (id, doc_id, content)
+            VALUES (:id, :doc_id, :content)
+            ON CONFLICT (id) DO UPDATE SET content = EXCLUDED.content;
+        """)
+
+        insert_vec_sql = text(f"""
+            INSERT INTO {self.chunk_embeddings_table} (chunk_id, embedding)
+            VALUES (:chunk_id, :embedding)
+            ON CONFLICT (chunk_id) DO UPDATE SET embedding = EXCLUDED.embedding;
+        """)
+
+        total = 0
         try:
-            with engine.connect() as conn:
-                result = conn.execute(text(self.query))
-                rows = result.fetchall()
-                columns = result.keys()
-                
-                text_content = []
-                text_content.append(f"SQL Upit rezultati: {context.filename}")
-                text_content.append(f"Kolone: {', '.join(columns)}")
-                text_content.append("")
-                
-                for row in rows[:self.batch_size]:
-                    row_dict = dict(zip(columns, row))
-                    row_text = " | ".join([f"{k}: {v}" for k, v in row_dict.items()])
-                    text_content.append(row_text)
-                
-                context.text_content = "\n".join(text_content)
-                context.metadata['sql_rows_fetched'] = len(rows)
-                context.metadata['sql_columns'] = list(columns)
-                context.metadata['sql_query'] = self.query
-                
-        except Exception as e:
-            raise Exception(f"SQL ingestion nije prošlo: {str(e)}")
-        finally:
-            engine.dispose()
-        
+            with engine.begin() as conn:
+                start = 0
+                while start < len(chunks):
+                    end = min(start + self.batch_size, len(chunks))
+                    slice_chunks = chunks[start:end]
+                    slice_vecs = vectors[start:end]
+
+                    chunk_rows, chunk_ids = [], []
+                    for ch in slice_chunks:
+                        cid = uuid.uuid4()
+                        chunk_ids.append(cid)
+                        chunk_rows.append({"id": str(cid), "doc_id": str(doc_id), "content": ch})
+                    conn.execute(insert_chunk_sql, chunk_rows)
+
+                    vec_rows = [{"chunk_id": str(cid), "embedding": vec} for cid, vec in zip(chunk_ids, slice_vecs)]
+                    conn.execute(insert_vec_sql, vec_rows)
+
+                    total += (end - start)
+                    start = end
+        except SQLAlchemyError as e:
+            raise Exception(f"PgVectorIngestAgent: DB error: {e}") from e
+
+        context.metadata["sql_mode"] = "upsert_postgres"
+        context.metadata["sql_upsert_count"] = total
+        context.metadata["doc_id"] = str(doc_id)
         return context
-    
-    def _is_safe_query(self, query: str) -> bool:
-        query_upper = query.strip().upper()
-        
-        dangerous_keywords = ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'CREATE', 'ALTER', 'TRUNCATE', 'EXEC', 'EXECUTE']
-        
-        for keyword in dangerous_keywords:
-            if re.search(rf'\b{keyword}\b', query_upper):
-                return False
-        
-        if not query_upper.startswith('SELECT'):
-            return False
-        
-        return True

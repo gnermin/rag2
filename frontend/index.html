@@ -1,13 +1,29 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Multi-RAG - Multi-Agent RAG System</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multi-RAG - Multi-Agent RAG System</title>
+
+  <!-- Anti-FOUC: set dark klasu prije mounta -->
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('theme');
+        var wantsDark = saved ? (saved === 'dark')
+          : window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (wantsDark) document.documentElement.classList.add('dark');
+        else document.documentElement.classList.remove('dark');
+      } catch (e) { }
+    })();
+  </script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>

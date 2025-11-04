@@ -24,4 +24,10 @@ scipy==1.11.4
 aiofiles==23.2.1
 email-validator==2.1.0.post1
 httpx>=0.25,<0.28
+pymupdf==1.24.10
+pymupdf4llm==0.0.17
+pdfplumber==0.11.4
+ibm-db==3.2.3
+ibm-db-sa==0.4.0
+
 
