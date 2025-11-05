@@ -7,7 +7,7 @@ from app.models.user import User
 from app.models.document import Document
 from app.models.external_source import ExternalSource, IngestJob
 from app.schemas.ingest import SQLIngestRequest, SQLIngestResponse
-from app.agents.sql_ingest import SQLIngestAgent
+from app.agents.sql_ingest import PgVectorIngestAgent as SQLIngestAgent
 from app.agents.chunking import ChunkingAgent
 from app.agents.embedding import EmbeddingAgent
 from app.agents.indexing import IndexingAgent
